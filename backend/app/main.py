@@ -10,7 +10,7 @@ app = FastAPI()
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # You can restrict this to your frontend domain
+    allow_origins=["*"],  # Adjust as needed for production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -23,3 +23,4 @@ app.include_router(grocery.router)
 @app.get("/")
 def root():
     return {"message": "Welcome to the Grocery Tracker API"}
+
