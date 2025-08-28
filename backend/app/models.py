@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Date, ForeignKey
+from sqlalchemy import Column, Integer, String, Date, ForeignKey, DateTime
+from datetime import datetime
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -18,3 +19,10 @@ class GroceryItem(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
 
     owner = relationship("User")
+
+
+class BlacklistedToken(Base):
+    __tablename__ = "blacklisted_tokens"
+    id = Column(Integer, primary_key=True, index=True)
+    token = Column(String, unique=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)

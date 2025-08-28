@@ -20,3 +20,10 @@ def delete_item(item_id: int, db: Session = Depends(database.get_db), user=Depen
     if not deleted:
         return {"detail": "Item not found"}
     return {"detail": "Deleted"}
+
+@router.get("/item/{item_id}/edit", response_model=schemas.GroceryItem)
+def edit_item(item_id: int, db: Session = Depends(database.get_db), user=Depends(auth.get_current_user)):
+    item = crud.get_grocery_item(db, item_id, user.id)
+    if not item:
+        return {"detail": "Item not found"}
+    return item
