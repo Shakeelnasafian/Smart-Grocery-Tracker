@@ -24,3 +24,6 @@ app.include_router(grocery.router)
 def root():
     return {"message": "Welcome to the Grocery Tracker API"}
 
+@app.get("/health")
+def health_check():
+    return {"status": "healthy"}

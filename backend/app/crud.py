@@ -18,3 +18,6 @@ def delete_grocery_item(db: Session, item_id: int, user_id: int):
         db.delete(item)
         db.commit()
     return item
+
+def get_grocery_item(db: Session, item_id: int, user_id: int):
+    return db.query(models.GroceryItem).filter_by(id=item_id, user_id=user_id).first()

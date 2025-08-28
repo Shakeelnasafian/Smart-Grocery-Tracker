@@ -22,6 +22,10 @@ def create_access_token(data: dict):
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(database.get_db)):
     try:
+        # Check blacklist
+        if db.query(models.BlacklistedToken).filter_by(token=token).first():
+            raise HTTPException(status_code=401, detail="Token has been revoked")
+        
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user = db.query(models.User).get(payload.get("sub"))
         if user is None:
@@ -47,3 +51,13 @@ def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(dat
         raise HTTPException(status_code=400, detail="Invalid credentials")
     token = create_access_token({"sub": str(user.id)})
     return {"access_token": token, "token_type": "bearer"}
+
+@router.post("/logout")
+def logout(token: str = Depends(oauth2_scheme), db: Session = Depends(database.get_db)):
+    blacklisted = db.query(models.BlacklistedToken).filter_by(token=token).first()
+    if blacklisted:
+        raise HTTPException(status_code=400, detail="Token already invalidated")
+    
+    db.add(models.BlacklistedToken(token=token))
+    db.commit()
+    return {"msg": "User logged out"}
