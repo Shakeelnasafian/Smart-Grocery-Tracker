@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from app import crud, schemas, database
 from app.routers.auth import get_current_user
@@ -25,7 +25,7 @@ def upsert_alert_settings(
 
 @router.get("/expiring")
 def get_expiring_items(
-    days: int = 3,
+    days: int = Query(3, ge=1, le=365, description="Items expiring within N days (1–365)"),
     db: Session = Depends(database.get_db),
     user=Depends(get_current_user),
 ):

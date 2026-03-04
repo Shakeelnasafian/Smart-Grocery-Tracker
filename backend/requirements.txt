@@ -4,6 +4,7 @@ uvicorn[standard]>=0.29.0
 
 # Database
 sqlalchemy>=2.0.0
+alembic>=1.13.0
 
 # Validation
 pydantic>=2.0.0
@@ -23,10 +24,6 @@ apscheduler>=3.10.0
 # Rate limiting
 slowapi>=0.1.9
 
-# Export
-openpyxl>=3.1.0
-
 # Dev / testing
 pytest>=8.0.0
 pytest-asyncio>=0.23.0
-httpx>=0.27.0

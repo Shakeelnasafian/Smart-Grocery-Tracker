@@ -15,17 +15,6 @@ engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": Fal
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
-def override_get_db():
-    db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-app.dependency_overrides[get_db] = override_get_db
-
-
 @pytest.fixture(scope="session", autouse=True)
 def setup_database():
     Base.metadata.create_all(bind=engine)
@@ -35,16 +24,26 @@ def setup_database():
 
 @pytest.fixture()
 def db():
-    db = TestingSessionLocal()
+    """
+    Provide a DB session bound to an outer transaction that is rolled back after each
+    test, ensuring proper isolation even when the code under test calls session.commit().
+    """
+    connection = engine.connect()
+    transaction = connection.begin()
+    session = TestingSessionLocal(bind=connection)
+    # Patch the app dependency so the test client uses the same connection
+    app.dependency_overrides[get_db] = lambda: session
     try:
-        yield db
+        yield session
     finally:
-        db.rollback()
-        db.close()
+        session.close()
+        transaction.rollback()
+        connection.close()
+        app.dependency_overrides.pop(get_db, None)
 
 
 @pytest.fixture()
-def client():
+def client(db):
     return TestClient(app)
 
 
@@ -54,9 +53,7 @@ def test_user(db):
     db.add(user)
     db.commit()
     db.refresh(user)
-    yield user
-    db.delete(user)
-    db.commit()
+    return user
 
 
 @pytest.fixture()
@@ -65,5 +62,6 @@ def auth_headers(client, test_user):
         "/token",
         data={"username": "test@example.com", "password": "testpassword123"},
     )
+    assert response.status_code == 200, f"Login failed: {response.text}"
     token = response.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
