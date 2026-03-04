@@ -26,6 +26,11 @@ async def search_food(
         try:
             response = await client.get(OPENFOODFACTS_URL, params=params)
             response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            raise HTTPException(
+                status_code=502,
+                detail=f"Open Food Facts API returned {exc.response.status_code}",
+            )
         except httpx.RequestError:
             raise HTTPException(status_code=503, detail="Could not reach Open Food Facts API")
 
@@ -60,6 +65,11 @@ async def get_by_barcode(barcode: str, _=Depends(get_current_user)):
         try:
             response = await client.get(url)
             response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            raise HTTPException(
+                status_code=502,
+                detail=f"Open Food Facts API returned {exc.response.status_code}",
+            )
         except httpx.RequestError:
             raise HTTPException(status_code=503, detail="Could not reach Open Food Facts API")
 

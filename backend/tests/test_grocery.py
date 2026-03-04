@@ -1,6 +1,4 @@
 """Tests for grocery item CRUD endpoints."""
-import pytest
-
 
 ITEM_PAYLOAD = {
     "name": "Milk",

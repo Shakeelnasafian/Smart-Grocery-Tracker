@@ -63,7 +63,8 @@ def register(form: schemas.UserCreate, db: Session = Depends(database.get_db)):
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    logger.info("New user registered: %s", form.email)
+    # Log user_id only — never log raw email (PII)
+    logger.info("New user registered: user_id=%s", new_user.id)
     return new_user
 
 
@@ -72,8 +73,10 @@ def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(dat
     user = db.query(models.User).filter_by(email=form.username).first()
     if not user or not verify_password(form.password, user.hashed_password):
         raise HTTPException(status_code=400, detail="Invalid credentials")
+    if not user.is_active:
+        raise HTTPException(status_code=400, detail="Account is disabled")
     token = create_access_token({"sub": str(user.id)})
-    logger.info("User logged in: %s", user.email)
+    logger.info("User logged in: user_id=%s", user.id)
     return {"access_token": token, "token_type": "bearer"}
 
 

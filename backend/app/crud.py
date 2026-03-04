@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import func, extract
+from sqlalchemy import func, extract, desc
 from app import models, schemas
 from datetime import date, timedelta
 from typing import Optional, List
@@ -30,7 +30,7 @@ def get_grocery_items(
     query = db.query(models.GroceryItem).filter(models.GroceryItem.user_id == user_id)
 
     if not show_consumed:
-        query = query.filter(models.GroceryItem.is_consumed == False)
+        query = query.filter(models.GroceryItem.is_consumed == False)  # noqa: E712
 
     if search:
         query = query.filter(models.GroceryItem.name.ilike(f"%{search}%"))
@@ -46,7 +46,12 @@ def get_grocery_items(
         )
 
     total = query.count()
-    items = query.order_by(models.GroceryItem.expiry_date.asc()).offset((page - 1) * page_size).limit(page_size).all()
+    items = (
+        query.order_by(models.GroceryItem.expiry_date.asc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
 
     return {
         "items": items,
@@ -82,6 +87,13 @@ def delete_grocery_item(db: Session, item_id: int, user_id: int):
     return item
 
 
+def get_all_grocery_items(db: Session, user_id: int) -> List[models.GroceryItem]:
+    """Return all items without pagination (used for CSV export)."""
+    return db.query(models.GroceryItem).filter_by(user_id=user_id).order_by(
+        models.GroceryItem.expiry_date.asc()
+    ).all()
+
+
 def get_expiring_items(db: Session, user_id: int, days: int = 3) -> List[models.GroceryItem]:
     threshold = date.today() + timedelta(days=days)
     return (
@@ -90,7 +102,7 @@ def get_expiring_items(db: Session, user_id: int, days: int = 3) -> List[models.
             models.GroceryItem.user_id == user_id,
             models.GroceryItem.expiry_date <= threshold,
             models.GroceryItem.expiry_date >= date.today(),
-            models.GroceryItem.is_consumed == False,
+            models.GroceryItem.is_consumed == False,  # noqa: E712
         )
         .all()
     )
@@ -111,7 +123,12 @@ def get_budget(db: Session, user_id: int, month: int, year: int):
 
 
 def get_budgets(db: Session, user_id: int):
-    return db.query(models.Budget).filter_by(user_id=user_id).order_by(models.Budget.year.desc(), models.Budget.month.desc()).all()
+    return (
+        db.query(models.Budget)
+        .filter_by(user_id=user_id)
+        .order_by(models.Budget.year.desc(), models.Budget.month.desc())
+        .all()
+    )
 
 
 def update_budget(db: Session, budget_id: int, user_id: int, updates: schemas.BudgetUpdate):
@@ -140,7 +157,7 @@ def _sync_budget_spending(db: Session, user_id: int):
             models.GroceryItem.price.isnot(None),
         )
         .scalar()
-    ) or 0.0
+    ) or 0
     budget.spent_amount = total
     db.commit()
 
@@ -148,7 +165,12 @@ def _sync_budget_spending(db: Session, user_id: int):
 # ── Shopping List ─────────────────────────────────────────────────────────────
 
 def get_shopping_items(db: Session, user_id: int):
-    return db.query(models.ShoppingItem).filter_by(user_id=user_id).order_by(models.ShoppingItem.is_purchased).all()
+    return (
+        db.query(models.ShoppingItem)
+        .filter_by(user_id=user_id)
+        .order_by(models.ShoppingItem.is_purchased)
+        .all()
+    )
 
 
 def create_shopping_item(db: Session, item: schemas.ShoppingItemCreate, user_id: int):
@@ -184,13 +206,18 @@ def generate_shopping_list(db: Session, user_id: int):
         db.query(models.GroceryItem)
         .filter(
             models.GroceryItem.user_id == user_id,
-            (models.GroceryItem.expiry_date < date.today()) | (models.GroceryItem.is_consumed == True),
+            (models.GroceryItem.expiry_date < date.today())
+            | (models.GroceryItem.is_consumed == True),  # noqa: E712
         )
         .all()
     )
     added = []
     for item in expired_or_consumed:
-        exists = db.query(models.ShoppingItem).filter_by(user_id=user_id, name=item.name, is_purchased=False).first()
+        exists = (
+            db.query(models.ShoppingItem)
+            .filter_by(user_id=user_id, name=item.name, is_purchased=False)
+            .first()
+        )
         if not exists:
             new_item = models.ShoppingItem(
                 name=item.name,
@@ -213,15 +240,20 @@ def get_analytics(db: Session, user_id: int) -> dict:
     all_items = db.query(models.GroceryItem).filter_by(user_id=user_id).all()
     total_items = len(all_items)
     consumed_items = sum(1 for i in all_items if i.is_consumed)
-    total_spent = sum(i.price for i in all_items if i.price) or 0.0
-    waste_rate = round((consumed_items / total_items * 100) if total_items else 0, 1)
+    total_spent = sum(float(i.price) for i in all_items if i.price) or 0.0
 
-    expired = sum(1 for i in all_items if not i.is_consumed and i.expiry_date and i.expiry_date < today)
+    # Waste rate = items that expired without being consumed / total items
+    expired_count = sum(
+        1 for i in all_items
+        if not i.is_consumed and i.expiry_date and i.expiry_date < today
+    )
+    waste_rate = round((expired_count / total_items * 100) if total_items else 0, 1)
+
     expiring_soon = sum(
         1 for i in all_items
         if not i.is_consumed and i.expiry_date and today <= i.expiry_date <= today + timedelta(days=3)
     )
-    fresh = total_items - consumed_items - expired - expiring_soon
+    fresh = total_items - consumed_items - expired_count - expiring_soon
 
     # Category breakdown
     category_map: dict = {}
@@ -230,10 +262,10 @@ def get_analytics(db: Session, user_id: int) -> dict:
         if cat not in category_map:
             category_map[cat] = {"category": cat, "count": 0, "total_spent": 0.0}
         category_map[cat]["count"] += 1
-        category_map[cat]["total_spent"] += item.price or 0.0
+        category_map[cat]["total_spent"] += float(item.price) if item.price else 0.0
 
-    # Monthly spending (last 6 months)
-    monthly = (
+    # Monthly spending — most recent 6 months (order desc then reverse for display)
+    monthly_rows = (
         db.query(
             extract("year", models.GroceryItem.created_at).label("year"),
             extract("month", models.GroceryItem.created_at).label("month"),
@@ -241,20 +273,26 @@ def get_analytics(db: Session, user_id: int) -> dict:
         )
         .filter(models.GroceryItem.user_id == user_id, models.GroceryItem.price.isnot(None))
         .group_by("year", "month")
-        .order_by("year", "month")
+        .order_by(desc("year"), desc("month"))
         .limit(6)
         .all()
     )
+    # Reverse so the chart shows chronological order (oldest → newest)
+    monthly = list(reversed(monthly_rows))
 
     return {
         "total_items": total_items,
         "total_spent": round(total_spent, 2),
         "consumed_items": consumed_items,
         "waste_rate": waste_rate,
-        "expiry_stats": {"expired": expired, "expiring_soon": expiring_soon, "fresh": max(fresh, 0)},
+        "expiry_stats": {
+            "expired": expired_count,
+            "expiring_soon": expiring_soon,
+            "fresh": max(fresh, 0),
+        },
         "category_breakdown": list(category_map.values()),
         "monthly_spending": [
-            {"year": int(m.year), "month": int(m.month), "total": round(m.total or 0, 2)}
+            {"year": int(m.year), "month": int(m.month), "total": round(float(m.total or 0), 2)}
             for m in monthly
         ],
     }

@@ -176,13 +176,14 @@ const foodResults = ref([]);
 const foodLoading = ref(false);
 
 const form = reactive({ name: '', quantity: '', category: '', expiry_date: '', price: '', notes: '' });
-const filters = reactive({ search: '', category: '', show_consumed: false, page: 1 });
+const filters = reactive({ search: '', category: '', show_consumed: false, page: 1, expiring_within_days: null });
 
 const fetchItems = async () => {
   const params = new URLSearchParams();
   if (filters.search) params.set('search', filters.search);
   if (filters.category) params.set('category', filters.category);
   if (filters.show_consumed) params.set('show_consumed', 'true');
+  if (filters.expiring_within_days) params.set('expiring_within_days', filters.expiring_within_days);
   params.set('page', filters.page);
   params.set('page_size', '15');
 
@@ -237,9 +238,15 @@ const markConsumed = async (item) => {
 };
 
 const filterExpiring = () => {
-  // Show only items expiring within 3 days by using a dedicated param
   filters.search = '';
   filters.category = '';
+  filters.expiring_within_days = 3;
+  filters.page = 1;
+  fetchItems();
+};
+
+const clearExpiryFilter = () => {
+  filters.expiring_within_days = null;
   fetchItems();
 };
 

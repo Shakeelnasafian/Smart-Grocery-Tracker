@@ -78,16 +78,24 @@ const form = reactive({ month: now.getMonth() + 1, year: now.getFullYear(), limi
 const spentPercent = (b) => b.limit_amount > 0 ? (b.spent_amount / b.limit_amount) * 100 : 0;
 
 const fetchBudgets = async () => {
-  const res = await axios.get(`${API}/budget/`, { headers: headers() });
-  budgets.value = res.data;
+  try {
+    const res = await axios.get(`${API}/budget/`, { headers: headers() });
+    budgets.value = res.data;
+  } catch (e) {
+    error.value = e.response?.data?.detail || 'Failed to load budgets.';
+  }
 };
 
 const createBudget = async () => {
   error.value = '';
   try {
-    await axios.post(`${API}/budget/`, { month: form.month, year: form.year, limit_amount: parseFloat(form.limit_amount) }, { headers: headers() });
+    await axios.post(
+      `${API}/budget/`,
+      { month: form.month, year: form.year, limit_amount: parseFloat(form.limit_amount) },
+      { headers: headers() },
+    );
     form.limit_amount = '';
-    fetchBudgets();
+    await fetchBudgets();
   } catch (e) {
     error.value = e.response?.data?.detail || 'Failed to create budget.';
   }

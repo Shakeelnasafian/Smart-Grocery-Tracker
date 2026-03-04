@@ -57,5 +57,4 @@ test.db
 # Alembic (keep structure, ignore generated files if desired)
 # alembic/versions/*.py  # uncomment to ignore generated migrations
 
-# Docker
-.dockerignore
+# Docker — .dockerignore should be tracked so build contexts are correct

@@ -4,7 +4,6 @@ import httpx
 from app import database, crud
 from app.routers.auth import get_current_user
 from app.config import settings
-from datetime import date
 
 router = APIRouter(prefix="/recipes", tags=["Recipes"])
 
@@ -52,6 +51,11 @@ async def get_recipe_suggestions(
         try:
             response = await client.get(url, params=params)
             response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            raise HTTPException(
+                status_code=502,
+                detail=f"Spoonacular API returned {exc.response.status_code}",
+            )
         except httpx.RequestError:
             raise HTTPException(status_code=503, detail="Could not reach Spoonacular API")
 

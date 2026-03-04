@@ -1,7 +1,8 @@
+import os
+import sys
 from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 from alembic import context
-import sys, os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
@@ -9,6 +10,11 @@ from app.database import Base
 from app import models  # noqa: F401 — ensure all models are imported
 
 config = context.config
+
+# Override sqlalchemy.url from DATABASE_URL env var so production (PostgreSQL) works
+database_url = os.environ.get("DATABASE_URL")
+if database_url:
+    config.set_main_option("sqlalchemy.url", database_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
@@ -18,7 +24,12 @@ target_metadata = Base.metadata
 
 def run_migrations_offline() -> None:
     url = config.get_main_option("sqlalchemy.url")
-    context.configure(url=url, target_metadata=target_metadata, literal_binds=True, dialect_opts={"paramstyle": "named"})
+    context.configure(
+        url=url,
+        target_metadata=target_metadata,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+    )
     with context.begin_transaction():
         context.run_migrations()
 

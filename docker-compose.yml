@@ -7,7 +7,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - SECRET_KEY=${SECRET_KEY:-dev-secret-change-me}
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY must be set in .env (min 32 chars)}
       - DATABASE_URL=sqlite:///./grocery.db
       - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
       - SMTP_HOST=${SMTP_HOST:-}
@@ -19,17 +19,22 @@ services:
     volumes:
       - grocery_data:/app/grocery.db
     restart: unless-stopped
+    # Use python stdlib urllib instead of curl (curl not in slim image)
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      # Inject API URL at build time so it's baked into the Vite bundle
+      args:
+        - VITE_API_URL=${VITE_API_URL:-http://localhost:8000}
     container_name: grocery-frontend
     ports:
-      - "80:80"
+      - "80:8080"
     depends_on:
       - backend
     restart: unless-stopped
