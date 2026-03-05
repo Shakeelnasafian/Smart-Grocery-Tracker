@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, field_validator
 from datetime import date, datetime
 from typing import Optional, List
 
@@ -50,6 +50,13 @@ class GroceryItemPage(BaseModel):
 class UserCreate(BaseModel):
     email: str
     password: str
+
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        if '@' not in v or '.' not in v:
+            raise ValueError('Invalid email format')
+        return v.lower()
 
 
 class UserOut(BaseModel):

@@ -53,6 +53,7 @@ env/
 .coverage
 htmlcov/
 test.db
+grocery.db
 
 # Alembic (keep structure, ignore generated files if desired)
 # alembic/versions/*.py  # uncomment to ignore generated migrations
